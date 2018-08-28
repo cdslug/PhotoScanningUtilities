@@ -1,0 +1,44 @@
+Auto Cropper Plan
+
+### Assumptions ###
+A desired photo is not completely black
+A photo may have a black border
+A photo is a rectangle with straight edges
+
+### Tests ###
+Test whether I can auto crop on a thumbnail
+
+### CONFIG ###
+average border pixel value
+std border pixel value
+auto rotate
+overcrop percent
+
+### Requirements ###
+log file with calculated rotation angle for each side of photo
+
+### Implementation ###
+2 recursive functions
+	find horizontal edges
+	find vertical edges
+	These might be the same function with an input flag
+
+--- Function ---
+def FindEdges
+	Input: Indices of search area
+	Output: set of Indices indicating border (angles?)
+	Description:
+		Start with a crude estimate by looking at middle of original photo.
+		Get 4 points for top, bottom, left, right
+		Use these to check for the border close the the adjacent edge
+	Corner Cases:
+		What about if a photo is rotated 45 degrees?
+
+		divide and
+
+--- Function ---
+def CheckBlackBorder
+	input: index to check
+	output: boolean
+	Description: Decides if pixel is black enough to be a border. Does not mean it is a border pixel
+		Check against the average black +- constant * std

@@ -1,7 +1,7 @@
 import os
 import sys
 import numpy as np
-import cv2 
+import cv2
 from PIL import Image
 import numpy
 import errno
@@ -14,13 +14,13 @@ import RotationLog
 import Rotate_Manual
 
 def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
+	try:
+		os.makedirs(path)
+	except OSError as exc:  # Python >2.5
+		if exc.errno == errno.EEXIST and os.path.isdir(path):
+			pass
+		else:
+			raise
 
 
 def haarDetect(imgCV2,classifierPath):
@@ -40,7 +40,7 @@ def haarDetect(imgCV2,classifierPath):
 	return matchedOrientations
 
 def autoRotate(inputPath, outputPath):
-
+	#print '###in autoRotate, inputPath: {}'.format(inputPath)
 	imgOrigPIL = Image.open(inputPath)
 	imgThumbPIL = imgOrigPIL.copy()
 
@@ -73,11 +73,11 @@ def autoRotate(inputPath, outputPath):
 
 	matchCounts = zip(*matchedOrientations)
 	temp = [sum(c) for c in matchCounts]
-	# print '{0} temp={1}'.format(outputPath.split('/')[-1],temp)
+	# #print '{0} temp={1}'.format(outputPath.split('/')[-1],temp)
 	likelyOrientation = temp.index(max(temp)) if temp.count(max(temp)) == 1 else None
 
 	if likelyOrientation != None:
-		# print '{0} rotated {1} * 90'.format(outputPath,likelyOrientation)
+		# #print '{0} rotated {1} * 90'.format(outputPath,likelyOrientation)
 		imgOrigPIL = imgOrigPIL.rotate(likelyOrientation*90,expand=True)
 		imgOrigPIL.save(outputPath,'JPEG',quality=100)
 		return True
@@ -86,38 +86,46 @@ def autoRotate(inputPath, outputPath):
 
 
 def saveThumbnail(inputPath,outputPath):
-	imgOrigPIL = Image.open(inputPath)
-	imgThumbPIL = imgOrigPIL.copy()
-
-	thumbSize = 500,500
-	imgThumbPIL.thumbnail(thumbSize, Image.ANTIALIAS)
-	# thumbPath = '/'.join(inputPath.split('/')[:-1]).replace('SCANS','SCANS_RotThumb')
+	# print("inputPath: {}".format(inputPath[inputPath.index('SCANS'):]))
 	thumbPath = outputPath
 	mkdir_p(thumbPath)
 	thumbPath = os.path.join(thumbPath,inputPath.split('/')[-1])
-	imgThumbPIL.save(thumbPath,'JPEG',quality=80)
+	if not os.path.isfile(thumbPath):
+		# imgOrigPIL = Image.open(inputPath)
+		# imgThumbPIL = imgOrigPIL.copy()
 
-	#if there are more than <threshold> files to be rotate, run rotation script
+		imgThumbPIL = Image.open(inputPath)
+
+		thumbSize = 500,500
+		imgThumbPIL.thumbnail(thumbSize)#, Image.ANTIALIAS)
+		# thumbPath = '/'.join(inputPath.split('/')[:-1]).replace('SCANS','SCANS_RotThumb')
+
+		imgThumbPIL.save(thumbPath,'JPEG',quality=30)
+
+		#if there are more than <threshold> files to be rotate, run rotation script
 
 
 def rotateImage(photoPaths):
 
 	inputPath,outputPath = photoPaths
 
-	if autoRotate(inputPath,outputPath) == True:
-		pass
+	# if autoRotate(inputPath,outputPath) == True:
+	# 	pass
 		# RotationLog.appendRotationLog([inputPath])
-	
+
 	outputThumbPath = '/'.join(inputPath.replace('SCANS/','SCANS_RotThumb/').split('/')[:-1])
+	#print '### outputThumbPath: {}'.format(outputThumbPath)
 	saveThumbnail(inputPath,outputThumbPath)
 	#write file name to text file in rotated image directory
 
 def rotatePipelined(fileList):
 	### this python Automator script requires the watched directory to end with 'SCANS'
+	#print 'file list len: {}'.format(len(fileList))
+	filePathsInput = []
 	for f in fileList:
-		if 'SCANS' in f:
-			# print 'fuck {}'.format(f)
-			filePathsInput = []
+		if 'SCANS' in f and f.split('/')[-1][0] != '.' and f[-4:] in ['.jpg','.JPG','.png']:
+			# #print 'fuck {}'.format(f)
+
 			if os.path.isfile(f):
 				filePathsInput.append(f)
 				mkdir_p('/'.join(f.replace('SCANS/','SCANS_Rotated/').split('/')[:-1]))
@@ -130,34 +138,39 @@ def rotatePipelined(fileList):
 					for name in files:
 						filePathsInput.append(os.path.join(root,name))
 					# for name in dirs:
-						# print '### {0} ###'.format(os.path.join(root,name).replace('SCANS','SCANS_Rotated'))
-					
-			# print 'filePathsInput: {0}'.format(filePathsInput)
-			filePathsOutput = []
+						# #print '### {0} ###'.format(os.path.join(root,name).replace('SCANS','SCANS_Rotated'))
 
-			for path in filePathsInput:
-				#not robust, but very easy to implement
-				#fails if there are sub-folders with the same name as a parent
-				op = path.replace('SCANS','SCANS_Rotated')
-				filePathsOutput.append(op)
-				### if not a supported file type transfer without question, don't want to lose it
-				if path[-4:] not in ['.jpg','.png'] and path.split('/')[-1][0] != '.':
-					shutil.copy(path,op)
-			filePathsIO = zip(filePathsInput,filePathsOutput)
-			filePathsIO = [(i,o) for (i,o) in filePathsIO if i[-4:] in ['.jpg','.png'] and i.split('/')[-1][0] != '.']
+			# #print 'filePathsInput: {0}'.format(filePathsInput)
+	filePathsOutput = []
 
-			procs = []
-			numProcs = 4
-			step = len(filePathsIO)/numProcs +1
-			for index in range(numProcs):
-				p = Process(target = map,args = (rotateImage,filePathsIO[index*step:index*step+step]))
-				p.start()
-				procs.append(p)
+	for path in filePathsInput:
+		#not robust, but very easy to implement
+		#fails if there are sub-folders with the same name as a parent
+		op = path.replace('SCANS','SCANS_Rotated')
+		filePathsOutput.append(op)
+		### if not a supported file type transfer without question, don't want to lose it
+		if path[-4:] not in ['.jpg','.JPG','.png'] and path.split('/')[-1][0] != '.':
+			shutil.copy(path,op)
+	filePathsIO = zip(filePathsInput,filePathsOutput)
+	#print '###  filePathsIO len: {}'.format(len(filePathsIO))
 
-			for p in procs:
-				p.join()
 
-			
+	procs = []
+	numProcs = 8
+	step = len(filePathsIO)/numProcs +1
+	for index in range(numProcs):
+		p = Process(target = map,args = (rotateImage,filePathsIO[index*step:index*step+step]))
+		p.start()
+		procs.append(p)
+
+	for p in procs:
+		p.join()
+
+	# for index in range(len(filePathsIO)):
+	# 	rotateImage(filePathsIO[index])
+
+
+
 
 	# return fileList[1]
 
@@ -168,21 +181,13 @@ if __name__ == '__main__':
 	baseRotatedPath = baseInputPath + '_Rotated'
 	#depends on the behavior that hidden files starting with '.' are not copied over to other folders
 	filesRotated = RotationLog.getRotationLog(baseRotatedPath)
-	# print('files Rotated: {0}'.format(filesRotated))
+	# #print('files Rotated: {0}'.format(filesRotated))
 	filesUnrotated = RotationLog.checkUnrotatedFiles(filesRotated,sys.argv[1:])
-	# print 'Files Not Rotated Yet: {0}'.format(filesUnrotated)
+	# #print 'Files Not Rotated Yet: {0}'.format(filesUnrotated)
 	rotatePipelined(filesUnrotated)
 
 	###Rotate Manual at end so files to be rotated are the same
 	# Rotate_Manual.filesUnrotated = [f.replace('SCANS/','SCANS_RotThumb/') for f in filesUnrotated]
 
-	# 	# print '###filesUnrotated: {0}'.format(filesUnrotated)
+	# 	# #print '###filesUnrotated: {0}'.format(filesUnrotated)
 	# Rotate_Manual.manualRotate(filesUnrotated)
-
-
-		
-	
-
-
-			
-			

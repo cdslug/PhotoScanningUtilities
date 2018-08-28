@@ -4,20 +4,44 @@ def getRotationLog(baseRotatedPath):
 	rotatedPics = []
 	for root, directories,files in os.walk(baseRotatedPath):
 		for name in files:
-			rotatedPics.append(name)
+			print("### getRotationLog: name = ".format(name))
+			if name[-4:] in ['.jpg','.JPG','.png','.PNG']:
+				rotatedPics.append(os.path.join(root,name))
 	return rotatedPics
 
-def checkUnrotatedFiles(rotatedPics,inputPaths):
+def checkUnrotatedFiles(rotatedPicsOriginal,inputPaths):
 	filePathsInput = []
+
+	inputSCANSIndex = None
+	print("### checkUnrotatedFiles: len(rotatedPicsOriginal) {}".format(len(rotatedPicsOriginal)))
+
+	for index,rp in enumerate(inputPaths[0].split('/')):
+		if 'SCANS' in rp:
+			inputSCANSIndex = index + 1
+			break
+
+	rotatedSCANSIndex = None
+	if len(rotatedPicsOriginal) > 0:
+		for index,rp in enumerate(rotatedPicsOriginal[0].split('/')):
+			if 'SCANS' in rp:
+				rotatedSCANSIndex = index + 1
+				break
+
+	rotatedPics = [''.join(f.split('/')[rotatedSCANSIndex:]) for f in rotatedPicsOriginal]
+
 	for f in inputPaths:
-		if os.path.isfile(f) and f.split('/')[-1] not in rotatedPics:
-			filePathsInput.append(f)
+		inputSubPath = ''.join(f.split('/')[inputSCANSIndex:])
+
+		if os.path.isfile(f) and inputSubPath not in rotatedPics:
+			if f[-4:] in ['.jpg','.JPG','.png','.PNG']:
+				filePathsInput.append(f)
 		else:
 			for root, dirs, files in os.walk(f):
 				#root must always have 'Scans' at the end
 				for name in files:
 					if name not in rotatedPics:
-						filePathsInput.append(os.path.join(root,name))
+						if name[-4:] in ['.jpg','.JPG','.png','.PNG']:
+							filePathsInput.append(os.path.join(root,name))
 						# print name
 	return filePathsInput
 

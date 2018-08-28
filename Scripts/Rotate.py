@@ -34,8 +34,11 @@ class keycode:
 def askPhotoOrientation(imagePath):
 	smallSize = 500
 
+	if imagePath == None:
+		return '0'
+		
 	imgCV2 = cv2.imread(imagePath)
-	# print 'Image Path: {0}'.format(imagePath)
+	print 'Image Path: {0}'.format(imagePath)
 	scaleRatio = smallSize/float(max(imgCV2.shape[:-1]))
 	# print 'Scale Ratio: {0}'.format(scaleRatio)
 	imgCV2Thumb = cv2.resize(imgCV2, (0,0), fx=scaleRatio,fy=scaleRatio)

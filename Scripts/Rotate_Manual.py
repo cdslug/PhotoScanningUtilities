@@ -12,9 +12,11 @@ def pilSaveHelper(imgPIL,outputPath):
 	imgPIL.save(outputPath,'JPEG',quality = 100)
 
 def handleImage(photoPath):
+	# print '### photoPath: {}'.format(photoPath)
 	returnOrientation = []
 	photoOrientation = None
 
+	# print("*** {}".format(photoPath))
 	photoOrientation = Rotate.askPhotoOrientation(photoPath['InputThumb'])
 
 	if photoOrientation.isdigit():
@@ -27,12 +29,16 @@ def handleImage(photoPath):
 		# else:
 		# 	p = Process(target = pilSaveHelper,args = (imageRotated,photoPath['Output']))
 		# 	p.start()
+
+		# if photoOrientation != '0':
+		# 	img = Image.open(photoPath['InputThumb']).rotate(int(photoOrientation) * 90)#,expand=True)
+		# 	img.save(photoPath['InputThumb'],'JPEG',quality = 100)
+
 		returnOrientation.append({'InputOriginal':photoPath['InputOriginal'],'Output':photoPath['Output'],'Orientation':photoOrientation})
 		# os.remove(photoPath['Input'])
 		#save in two places, remove input
-	# elif photoOrientation == 'D': #delete photo
-	# 	shutil.copyfile(photoPath['InputThumb'],photoPath['Processed'])
-		# os.remove(photoPath['Input'])
+	elif photoOrientation == 'd': #delete photo
+		returnOrientation.append({'InputOriginal':photoPath['InputOriginal'],'Output':photoPath['Output'],'Orientation':"-1"})
 	elif photoOrientation == 'z' and photoPath['photoPathIO_prev']:
 		returnOrientation += handleImage(photoPath['photoPathIO_prev'])
 		returnOrientation += handleImage(photoPath) #this photoPath must be redone because the command was 'z'
@@ -49,8 +55,14 @@ def rotateImageSave(imagePackage):
 		# raw_input('save, ok?')
 		if imagePackage['Orientation'] == '0':
 			shutil.copy(imagePackage['InputOriginal'],imagePackage['Output'])
+		elif imagePackage['Orientation'] == '-1':
+			try:
+				os.remove(imagePackage['Output'])
+			except OSError:
+				pass
+			pass
 		else:
-			img = Image.open(imagePackage['InputOriginal']).rotate(int(imagePackage['Orientation']) * 90,expand=True)
+			img = Image.open(imagePackage['InputOriginal']).rotate(int(imagePackage['Orientation']) * 90)#,expand=True)
 			img.save(imagePackage['Output'],'JPEG',quality = 100)
 		# RotationLog.appendRotationLog([imagePackage['InputOriginal']])
 
@@ -60,7 +72,7 @@ def manualRotate(photoPathsInput):
 	# 	for name in files:
 	# 		photoPathsInput.append(os.path.join(root,name))
 	# print 'photoPathsInput: {0}'.format(photoPathsInput)
-	
+
 
 	photoPathsOutput = []
 	photoPathsOriginal = []
@@ -72,15 +84,18 @@ def manualRotate(photoPathsInput):
 
 	photoPathsZip = zip(photoPathsInput,photoPathsOriginal,photoPathsOutput)
 	photoPathsIO = [{'InputThumb':ith,'InputOriginal':ior,'Output':o} for (ith,ior,o) in photoPathsZip if ith.split('/')[-1][0] != '.']
-	
+
 	if photoPathsIO != []:
 		photoPathsIO[0]['photoPathIO_prev'] = {}
 		for index in range(len(photoPathsIO)-1):
 			photoPathsIO[index+1]['photoPathIO_prev'] = photoPathsIO[index]
-
+			# tempIndex = photoPathsIO[index]['InputThumb'].index('SCANS')
+			# print('input file: {}'.format(photoPathsIO[index]['InputThumb'][tempIndex:]))
 		procs = []
 		orientation = []
 		for count,photoPath in enumerate(photoPathsIO):
+			if photoPath == None:
+				continue
 			orientation += handleImage(photoPath)
 			if count % 4 == 3:
 				for orient in orientation:
@@ -117,7 +132,7 @@ if __name__ == "__main__":
 		baseInputPath = baseInputPath[:baseInputPath.index('SCANS') + len('SCANS')]
 		baseRotatedPath = baseInputPath + '_Rotated'
 		filesRotated = RotationLog.getRotationLog(baseRotatedPath)
-		filesUnrotated = RotationLog.checkUnrotatedFile(filesRotated,sys.argv[1:])
+		filesUnrotated = RotationLog.checkUnrotatedFiles(filesRotated,sys.argv[1:])
 		filesUnrotated = [f.replace('SCANS/','SCANS_RotThumb/') for f in filesUnrotated]
 
 		# print '###filesUnrotated: {0}'.format(filesUnrotated)

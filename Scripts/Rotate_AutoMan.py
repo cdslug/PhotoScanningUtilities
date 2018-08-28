@@ -12,7 +12,7 @@ def countFiles(path):
 		fileCount += 1
 	else:
 		for root, dirs,files in os.walk(path):
-			fileCount += len([f for f in files if f[-4:].lower() in ['.jpg','.png']])
+			fileCount += len([f for f in files if f[-4:].lower() in ['.jpg','.JPG','.png']])
 
 	return fileCount
 
@@ -45,16 +45,26 @@ if __name__ == '__main__':
 	#depends on the behavior that hidden files starting with '.' are not copied over to other folders
 	filesRotated = RotationLog.getRotationLog(baseRotatedPath)
 	filesUnrotated = RotationLog.checkUnrotatedFiles(filesRotated,inputFilePaths)
+	filesUnrotated.sort()
+	for fU in filesUnrotated:
+		try:
+			tempIndex = fU.index('SCANS')
+			print(fU)
+		except ValueError:
+			print('### {}'.format(fU))
 	Rotate_Auto.rotatePipelined(filesUnrotated)
-	
+
 	autoRotatedCount = countFiles(baseRotatedPath) - initialRotatedCount
 	###Rotate Manual at end so files to be rotated are the same
 
 	filesRotated = RotationLog.getRotationLog(baseRotatedPath)
 	filesUnrotated = RotationLog.checkUnrotatedFiles(filesRotated,inputFilePaths)
+	filesUnrotated.sort()
+
 	filesUnrotated = [f.replace('SCANS/','SCANS_RotThumb/') for f in filesUnrotated]
 
 	# 	# print '###filesUnrotated: {0}'.format(filesUnrotated)
+	### TODO: needs to handle the case when there are no thumbnails in the thumbnail folder
 	Rotate_Manual.manualRotate(filesUnrotated)
 
 	totalRotatedCount = countFiles(baseRotatedPath) - initialRotatedCount
