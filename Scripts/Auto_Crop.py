@@ -70,7 +70,8 @@ def mkdir_p(path):
 
 def crop(filePaths):
 
-	colorThreshold = 25
+	colorThresholds = [50,30,20,10]
+	colorThreshold = 20
 	acceptedRatios = [1.5,0.66,1]
 	additionalCropRatio = 0.01
 	for index,fileSet in enumerate(filePaths):
@@ -82,19 +83,36 @@ def crop(filePaths):
 		# mkdir_p(fileset["Thumbnail"])
 		basename = os.path.basename(fileSet["Input"])
 		name, ext = os.path.splitext(basename)
-		print("{:.4f}% {} of {}: {}".format(index/float(len(filePaths)),index,len(filePaths),basename))
-
-		if basename[0] == "." or ext.lower() not in [".jpg",".png"]:
+		print(fileSet["Input"][fileSet["Input"].index("Behrens"):])
+		if basename[0] == "."or ext.lower() not in [".jpg",".png"]:
 			shutil.copy(fileSet["Input"],fileSet["Output"])
-			return
+			continue
 		else:
 			if not os.path.isfile(fileSet["Output"]) and not os.path.isfile(fileSet["Manual"]):
+				checkCropped = False
 				img = cv2.imread(fileSet["Input"])
-				img = Crop.rotate_image(img,colorThreshold)
-				img, checkCropped = Crop.crop_image(img,
-												   colorThreshold,
-												   acceptedRatios,
-												   additionalCropRatio)
+				if img is None:
+					continue
+				try:
+					for colorThreshold in colorThresholds:
+
+						img = Crop.rotate_image(img,colorThreshold)
+						img, checkCropped = Crop.crop_image(img,
+														   colorThreshold,
+														   acceptedRatios,
+														   additionalCropRatio)
+						if checkCropped == True:
+							break
+				except (ValueError,IndexError) as e:
+					print("Error")
+					pass
+				print("{:.4f}% {} of {}: {}, {} {}".format(index/float(len(filePaths)),
+														index,
+														len(filePaths),
+														fileSet["Input"][fileSet["Input"].index("Behrens"):],
+														checkCropped,
+														colorThreshold))
+
 				# cv2.imshow("cropped?: {}".format(checkCropped), img)
 				# cv2.waitKey(0)
 				if checkCropped == True:
@@ -125,8 +143,8 @@ def executePipeline(filePaths):
 
 if __name__ == '__main__':
 	inputPaths = getAllFiles(sys.argv[1:])
-	# inputPaths.sort()
-	random.shuffle(inputPaths)
+	inputPaths.sort()
+	# random.shuffle(inputPaths)
 
 	#Get the path of the directory to mimic
 	basePath = sys.argv[1]
