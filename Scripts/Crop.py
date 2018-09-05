@@ -12,14 +12,13 @@ import math
 
 #DEBUG = True
 
-def highlightBlack(img):
-    thresholdBlack = 10 #10 is just a quick trial and error
+def highlightBlack(img, thresholdBlack):
     for x in range(img.shape[0]):
         for y in range(img.shape[1]):
             if np.average(img[x,y,:]) < thresholdBlack:
-                img[x,y,2] = 255
-                img[x,y,1] = 0
-                img[x,y,0] = 0
+                img[x,y,2] += 50
+                img[x,y,1] += 50
+                img[x,y,0] += 50
     return img
 
 def detectBorders(img):
@@ -65,7 +64,7 @@ def findBounds(imgRGB,colorThreshold):
     h,w = img.shape
     offsetRatio = 0.05
     top,bottom,left,right = naiveBounds(imgRGB,colorThreshold,offsetRatio)
-
+    # print("top: {}, bottom: {}, left: {}, right: {}".format(top,bottom,left,right))
     def spreadDimPoints(dimLen,minDetected,maxDetected):
         divisions = 10 #needs to be even if it want it balanced
         offset = (maxDetected - minDetected)/(divisions-1)
@@ -86,24 +85,29 @@ def findBounds(imgRGB,colorThreshold):
     #points on top
     for x in xPoints:
         y = np.argmax(img[:,x] > colorThreshold)
-        boundsDetected["BoundsTop"].append([x,y])
+        # print(y)
+        if y < h:
+            boundsDetected["BoundsTop"].append([x,y])
     #points on bottom
     for x in xPoints:
         y = np.argmax(img[::-1,x] > colorThreshold)
         y = h-y
-        boundsDetected["BoundsBottom"].append([x,y])
+        if 0 < y:
+            boundsDetected["BoundsBottom"].append([x,y])
 
     #print("h: {}, top: {}, bottom: {}".format(h, top, bottom))
     yPoints = spreadDimPoints(h,top,bottom)
     #points on left
     for y in yPoints:
         x = np.argmax(img[y,:] > colorThreshold)
-        boundsDetected["BoundsLeft"].append([x,y])
+        if 0 < x:
+            boundsDetected["BoundsLeft"].append([x,y])
     #points on right
     for y in yPoints:
         x = np.argmax(img[y,::-1] > colorThreshold)
         x = w - x
-        boundsDetected["BoundsRight"].append([x,y])
+        if x < w:
+            boundsDetected["BoundsRight"].append([x,y])
 
         try:
             DEBUG
@@ -115,21 +119,46 @@ def findBounds(imgRGB,colorThreshold):
                 points = boundsDetected[key]
                 #TESTING: show points while testing
                 for p in points:
+                    # print(p)
                     img[p[1],p[0]] = 255
                     #img[p[1]-2:p[1]+2,p[0]-2:p[0]+2] = 255
                     # img[p[3]-2:p[3]+2,p[2]-2:p[2]+2] = 255
     return boundsDetected
+
+def rotate_image2(img, colorThreshold=0):
+    h,w,_ = img.shape
+
+    offsetRatio = 0.05
+
+    firstLeft = 0
+    img_mask = img > colorThreshold
+
+    for index in range(w):
+        if np.max(img[:,index]) == 1:
+            firstLeft = index
+            break
+
+    firstRight = 0
+    for index in reversed(range(w)):
+        if np.max(img[:,index]) == 1:
+            firstRight = index
+            break
+
+
+
 
 def rotate_image(img, colorThreshold=0):
     h,w,_ = img.shape
 
     offsetRatio = 0.05
     top,bottom,left,right = naiveBounds(img,colorThreshold,offsetRatio)
+    # print("top: {}, bottom: {}, left: {}, right: {}".format(top,bottom,left,right))
 
     #points on top and bottom
 
     boundsDetected = findBounds(img,colorThreshold)
 
+    # print("### boundsDetected: {}".format(boundsDetected))
     pointList = [] #[x1,y1,x2,y2]
     for key in boundsDetected.keys():
         #set points for finding slopes of boundary
@@ -145,11 +174,12 @@ def rotate_image(img, colorThreshold=0):
     #calculate slopes
     slopes = []
     for pl in pointList:
+        # print("pl: {}".format(pl))
         numerator = float(pl[3] - pl[1])
         denomenator = float(pl[2]-pl[0])
 
         #flip for left right bounds
-        if numerator > denomenator:
+        if abs(numerator) > abs(denomenator):
             numerator,denomenator = (-denomenator,numerator)
 
         if denomenator == 0:
@@ -157,7 +187,7 @@ def rotate_image(img, colorThreshold=0):
         else:
             slope = numerator/denomenator
             slopes.append(slope)
-    #print("slopes {}\n".format(slopes))
+    # print("slopes {}\n".format(slopes))
 
     meanSlope = np.mean(slopes)
     #print("mean slope : {}\n".format(meanSlope))
@@ -192,6 +222,12 @@ def removeOutliers(dimList):
     filteredDimList = list(filter(lambda x: abs(dimMean-x) <= abs(dimSTD),dimList))
     return filteredDimList
 
+def singleSTDThresold(data):
+    mu = np.mean(data)
+    sigma = np.std(data)
+    data = list(filter(lambda x: abs(x-mu) < sigma, data))
+    return data
+
 def findCropBounds(img,colorThreshold=0, acceptedRatios = [1.5,0.66,1]):
     h,w,_ = img.shape
 
@@ -199,23 +235,27 @@ def findCropBounds(img,colorThreshold=0, acceptedRatios = [1.5,0.66,1]):
 
     points = boundsFound["BoundsTop"]
     tops = [y for x,y in points]
-    # tops = removeOutliers(tops)
+    # tops = removeOutliers(tops)]
+    top = singleSTDThresold(tops)
     top = int(min(tops))
     #print("tops: {}".format(tops))
 
     points = boundsFound["BoundsBottom"]
     bottoms = [y for x,y in points]
     # bottoms = removeOutliers(bottoms)
+    bottoms = singleSTDThresold(bottoms)
     bottom = int(max(bottoms))
 
     points = boundsFound["BoundsLeft"]
     lefts = [x for x,y in points]
     # lefts = removeOutliers(lefts)
+    lefts = singleSTDThresold(lefts)
     left = int(min(lefts))
 
     points = boundsFound["BoundsRight"]
     rights = [x for x,y in points]
     # rights = removeOutliers(rights)
+    rights = singleSTDThresold(rights)
     right = int(max(rights))
 
     #print("top: {}, bottom: {}, left: {}, right: {}".format(top,bottom,left,right))
@@ -225,14 +265,15 @@ def findCropBounds(img,colorThreshold=0, acceptedRatios = [1.5,0.66,1]):
     except NameError:
         pass
     else:
-        cv2.rectangle(img,(left,top),(right,bottom),255)
+        cv2.rectangle(img,(left,top),(right,bottom),(200,200,200))
 
     #verify the ratio
     acceptableRatio = False
     ratio = float(bottom-top)/float(right-left)
     #print("ratio: {}\n".format(ratio))
     for ir in acceptedRatios:
-        if abs(ir-ratio) < ir * 0.02:
+        # print("{:.4f} vs {:.4f}".format(abs(ir-ratio)*100,ir * 0.015))
+        if abs(ir-ratio) < ir * 0.015:
             acceptableRatio = True
             break
     else:
@@ -261,7 +302,7 @@ def crop_image(img,
         pass
     else:
         #print("top: {}, bottom: {}, left: {}, right: {}".format(top,bottom,left,right))
-        cv2.rectangle(img,(left,top),(right,bottom),255)
+        cv2.rectangle(img,(left,top),(right,bottom),(255,255,255))
         #print(img.shape)
         return img,checkCropped
 
@@ -280,9 +321,9 @@ def main():
     average = np.average(img[0:25,0:25,:],axis=(0,1))
     #print("Average Pixel Value R:{},G:{},B:{}".format(average[0],average[1],average[2]))
 
-    #img = highlightBlack(img)
 
-    colorThreshold = 50
+
+    colorThreshold = 20
     img = rotate_image(img,colorThreshold)
     acceptedRatios = [1.5,0.66,1]
     additionalCropRatio = 0.005
@@ -291,6 +332,8 @@ def main():
                                   acceptedRatios,
                                   additionalCropRatio)
     timeStop = time.time()
+    # img = highlightBlack(img,colorThreshold)
+
     #print("### time taken = {}".format(timeStop-timeStart)) #2.33s
     cv2.imshow("cropped?: {}".format(checkCropped), img)
     cv2.waitKey(0)
